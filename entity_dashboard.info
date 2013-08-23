@@ -1,0 +1,14 @@
+name = Entity Dashboard
+description = Entity dashboard module.
+package = Dashboard
+core = 7.x
+configure = admin/system/entity_dashboard
+files[] = entity_dashboard.info.inc
+files[] = entity_dashboard.module
+files[] = views/entity_dashboard.views.inc
+files[] = views/entity_dashboard_handler_link_field.inc
+files[] = views/entity_dashboard_handler_edit_link_field.inc
+files[] = views/entity_dashboard_handler_delete_link_field.inc
+files[] = views/entity_dashboard_handler_entity_dashboard_operations_field.inc
+dependencies[] = entity
+dependencies[] = views

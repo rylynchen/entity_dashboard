@@ -1,0 +1,981 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function entity_dashboard_menu() {
+  $items = array();
+  $items['admin/config/system/entity_dashboard'] = array(
+    'title' => 'Entity Dashboard',
+    'description' => 'Entity dashboard settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('entity_dashboard_settings'),
+    'access arguments' => array('administer entity dashboard'),
+    'file' => 'entity_dashboard.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/structure/entity_dashboard'] = array(
+    'title' => 'Entity Dashboard',
+    'description' => 'Manage Entity Dashboard',
+    'page callback' => 'entity_dashboard_manage',
+    'access arguments' => array('administer entity dashboard'),
+    'file' => 'entity_dashboard.pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['entity_dashboard/add'] = array(
+    'title' => 'Add Entity Dashboard',
+    'page callback' => 'entity_dashboard_add',
+    'access arguments' => array('add entity dashboard'),
+    'file' => 'entity_dashboard.pages.inc',
+  );
+  $items['entity_dashboard/%entity_dashboard'] = array(
+    'title' => 'Entity Dashboard',
+    'page callback' => 'entity_dashboard_page_view',
+    'page arguments' => array(1),
+    'access arguments' => array('view entity dashboard'),
+    'file' => 'entity_dashboard.pages.inc',
+  );
+  $items['entity_dashboard/%entity_dashboard/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['entity_dashboard/%entity_dashboard/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'entity_dashboard_page_edit',
+    'page arguments' => array(1),
+    'access arguments' => array('edit entity dashboard'),
+    'weight' => 0,
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file' => 'entity_dashboard.pages.inc',
+  );
+  $items['entity_dashboard/%entity_dashboard/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('entity_dashboard_delete_confirm_form', 1),
+    'access arguments' => array('delete entity dashboard'),
+    'weight' => 1,
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_INLINE,
+    'file' => 'entity_dashboard.pages.inc',
+  );
+  /**
+   * entity_dashboard paths
+   */
+  foreach (entity_dashboards() as $dashboard) {
+    $items[$dashboard->path] = array(
+      'title' => $dashboard->title,
+      'page callback' => 'entity_dashboard_page',
+      'page arguments' => array($dashboard->path),
+      'access callback' => TRUE,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+    $items[$dashboard->path.'/configure'] = array(
+      'title' => $dashboard->title.' Configure',
+      'page callback' => 'entity_dashboard_page_blocks',
+      'page arguments' => array($dashboard->path),
+      'access arguments' => array('config entity dashboard'),
+      'type' => MENU_VISIBLE_IN_BREADCRUMB,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+    $items[$dashboard->path.'/customize'] = array(
+      'page callback' => 'entity_dashboard_page',
+      'page arguments' => array($dashboard->path, TRUE),
+      'access arguments' => array('config entity dashboard'),
+      'type' => MENU_VISIBLE_IN_BREADCRUMB,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+    $items[$dashboard->path.'/drawer'] = array(
+      'page callback' => 'entity_dashboard_show_disabled',
+      'page arguments' => array($dashboard->path),
+      'access arguments' => array('config entity dashboard'),
+      'type' => MENU_CALLBACK,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+    $pre_num = substr_count($dashboard->path, '/');
+    $items[$dashboard->path.'/block-content/%/%'] = array(
+      'page callback' => 'entity_dashboard_show_block_content',
+      'page arguments' => array($dashboard->path, 2 + $pre_num, 3 + $pre_num),
+      'access arguments' => array('config entity dashboard'),
+      'type' => MENU_CALLBACK,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+    $items[$dashboard->path.'/update'] = array(
+      'page callback' => 'entity_dashboard_update',
+      'page arguments' => array($dashboard->path),
+      'access arguments' => array('config entity dashboard'),
+      'type' => MENU_CALLBACK,
+      'file' => 'entity_dashboard.pages.inc',
+    );
+  }
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function entity_dashboard_permission() {
+  return array(
+    'administer entity dashboard' => array(
+      'title' => t('Administer Entity Dashboard'),
+      'description' => t('Administer entity dashboard.'),
+    ),
+    'add entity dashboard' => array(
+      'title' => t('Add Entity Dashboard'),
+      'description' => t('Add entitiy dashboards assocs.'),
+    ),
+    'edit entity dashboard' => array(
+      'title' => t('Edit All Entity Dashboards'),
+      'description' => t('Edit all entitiy dashboards assocs.'),
+    ),
+    'view entity dashboard' => array(
+      'title' => t('View All Entity Dashboards'),
+      'description' => t('View entitiy dashboards assocs.'),
+    ),
+    'delete entity dashboard' => array(
+      'title' => t('Delete All Entity Dashboards'),
+      'description' => t('Delete all entitiy dashboards assocs.'),
+    ),
+    'config entity dashboard' => array(
+      'title' => t('Config All Entity Dashboards'),
+      'description' => t('Config all entitiy dashboards assocs.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function entity_dashboard_entity_info() {
+  $return = array(
+    'entity_dashboard' => array(
+      'label' => t('Entity Dashboard'),
+      'plural label' => t('Entity Dashboards'),
+      'description' => t('Entity dashboard entity.'),
+      'entity class' => 'entityDashboard',
+      'controller class' => 'EntityAPIController',
+      'base table' => 'entity_dashboard',
+      'fieldable' => TRUE,
+      'view modes' => array(
+        'full' => array(
+          'label' => t('Entity Dashboard'),
+          'custom settings' => FALSE,
+        ),
+      ),
+      'entity keys' => array(
+        'id' => 'did',
+      ),
+      'bundles' => array(
+        'entity_dashboard' => array(
+          'label' => t('Entity Dashboard'),
+          'admin' => array(
+            'path' => 'admin/structure/entity_dashboard',
+            'access arguments' => array('administer entity dashboard'),
+          ),
+        ),
+      ),
+      'uri callback' => 'entity_class_uri',
+      'access callback' => 'entity_dashboard_access',
+      'module' => 'entity_dashboard',
+      'metadata controller class' => 'entityDashboardMetadataController'
+    ),
+  );
+  return $return;
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function entity_dashboard_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  if ($root_path == 'admin/structure/entity_dashboard') {
+    $item = menu_get_item('entity_dashboard/add');
+    if ($item['access']) {
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_admin_paths().
+ */
+function entity_dashboard_admin_paths() {
+  if (variable_get('node_admin_theme')) {
+    $paths = array(
+      'entity_dashboard/add' => TRUE,
+      'entity_dashboard/*' => TRUE,
+      'entity_dashboard/*/edit' => TRUE,
+      'entity_dashboard/*/delete' => TRUE,
+    );
+    return $paths;
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function entity_dashboard_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'entity_dashboard') . '/views',
+  );
+}
+
+/**
+ * Determines whether the given user has access to a entity dashboard.
+ *
+ * @param $op
+ *   The operation being performed. One of 'view', 'update', 'create', 'delete'
+ *   or just 'edit' (being the same as 'create' or 'update').
+ * @param $entityDashboard
+ *   Optionally to check access for. If nothing is given, access for
+ *   all dashboards is determined.
+ * @param $account
+ *   The user to check for. Leave it to NULL to check for the global user.
+ * @return boolean
+ *   Whether access is allowed or not.
+ */
+function entity_dashboard_access($op, $entityDashboard = NULL, $account = NULL) {
+  if (user_access('administer entity dashboard', $account)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Fetch a entity dashboard object.
+ *
+ * @param $did
+ *   Integer specifying the entity dashboard id.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ * @return
+ *   A fully-loaded $entityDashboard object or FALSE if it cannot be loaded.
+ *
+ * @see entity_dashboard_load_multiple()
+ */
+function entity_dashboard_load($did, $reset = FALSE) {
+  $entityDashboards = entity_dashboard_load_multiple(array($did), array(), $reset);
+  return reset($entityDashboards);
+}
+
+/**
+ * Get all entity dashborads
+ */
+function entity_dashboards() {
+  $dashboards = &drupal_static(__FUNCTION__);
+  if (!isset($dashboards)) {
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'entity_dashboard'); // Run the query as user 1.
+    $result = $query->execute();
+    if (isset($result['entity_dashboard'])) {
+      $dids = array_keys($result['entity_dashboard']);
+      $dashboards = entity_load('entity_dashboard', $dids);
+    }
+    else {
+      $dashboards = array();
+    }
+  }
+  return $dashboards;
+}
+
+/**
+ * Fetch a entity dashboard object by node nid.
+ *
+ * @param $nid
+ *   Integer specifying the entity dashboard node nid.
+ *
+ * @see entity_dashboard_load_multiple()
+ */
+function entity_dashboard_load_by_path($path) {
+  $cache = &drupal_static(__FUNCTION__, array());
+  if (!isset($cache[$path])) {
+    $entityDashboards = entity_dashboard_load_multiple(FALSE, array('path' => $path));
+    $cache[$path] = reset($entityDashboards);
+    return $cache[$path];
+  }
+  return $cache[$path];
+}
+
+/**
+ * Load multiple dashboards assocs based on certain conditions.
+ *
+ * @param $dids
+ *   An array of entity dashboard IDs.
+ * @param $conditions
+ *   An array of conditions to match against the {bmap} table.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ * @return
+ *   An array of entity dashboard objects, indexed by pid.
+ *
+ * @see entity_load()
+ * @see entity_dashboard_load()
+ */
+function entity_dashboard_load_multiple($dids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('entity_dashboard', $dids, $conditions, $reset);
+}
+
+/**
+ * Deletes a entity dashboard.
+ */
+function entity_dashboard_delete(entityDashboard $entityDashboard) {
+  $entityDashboard->delete();
+}
+
+/**
+ * Delete multiple entity dashboard.
+ *
+ * @param $dids
+ *   An array of entity dashboard IDs.
+ */
+function entity_dashboard_delete_multiple(array $dids) {
+  entity_get_controller('entity_dashboard')->delete($dids);
+}
+
+/**
+ * Create a new entity dashboard object.
+ */
+function entity_dashboard_create(array $values) {
+  return new entityDashboard($values);
+}
+
+/**
+ * Saves a entity dashboard to the database.
+ *
+ * @param $entityDashboard
+ *   The entity dashboard object.
+ */
+function entity_dashboard_save(entityDashboard $entityDashboard) {
+  return $entityDashboard->save();
+}
+
+/**
+ * The class used for bamp entities.
+ */
+class entityDashboard extends Entity {
+
+  /**
+   * The entity dashboard id.
+   *
+   * @var integer
+   */
+  public $did;
+
+  /**
+   * The entity dashboard page title.
+   *
+   * @var varchar
+   */
+  public $title;
+
+  /**
+   * The entity dashboard path.
+   *
+   * @var varchar
+   */
+  public $path;
+
+  /**
+   * The entity dashboard nid.
+   *
+   * @var varchar
+   */
+  public $tpl;
+
+  public function __construct($values = array()) {
+    parent::__construct($values, 'entity_dashboard');
+  }
+
+  protected function defaultLabel() {
+    return $this->path;
+  }
+
+  protected function defaultUri() {
+    return array('path' => 'entity_dashboard/'.$this->did);
+  }
+
+  public function save() {
+    parent::save();
+    $cache = &drupal_static('entity_dashboard_load_by_path', array());
+    if (isset($cache[$this->path])) {
+      $cache[$this->path] = $this;
+    }
+    menu_cache_clear_all();
+    menu_rebuild();
+  }
+
+  public function delete() {
+    db_delete('entity_dashboard_block')->condition('did', $this->did)->execute();
+    parent::delete();
+    menu_cache_clear_all();
+    menu_rebuild();
+  }
+}
+
+/**
+ * The Controller for entityDashboard entities
+ */
+class entityDashboardController extends EntityAPIController {
+  public function __construct($entityType) {
+    parent::__construct($entityType);
+  }
+
+  /**
+   * Create a entity dashboard - we first set up the values that are specific
+   * to our entity_dashboard schema but then also go through the EntityAPIController
+   * function.
+   * 
+   * @param $type
+   *   The machine-readable type of the entity dashboard.
+   *
+   * @return
+   *   A entity dashboard object with all default fields initialized.
+   */
+  public function create(array $values = array()) {
+    // Add values that are specific to our Bmap
+    $values += array(
+      'did' => '',
+    );
+    
+    $entityDashboard = parent::create($values);
+    return $entityDashboard;
+  }
+}
+
+/**
+ * The entity dashboard edit form.
+ */
+function entity_dashboard_form($form, &$form_state, $entityDashboard) {
+  // Save the entity dashboard for later, incase we need it.
+  $form['#entity_dashboard'] = $entityDashboard;
+  $form_state['entity_dashboard'] = $entityDashboard;
+  $form['did'] = array(
+    '#type' => 'value',
+    '#value' => isset($entityDashboard->did) ? $entityDashboard->did : NULL,
+  );
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#maxlength' => 60,
+    '#default_value' => !empty($entityDashboard->title) ? $entityDashboard->title : '',
+    '#weight' => -30,
+    '#required' => TRUE,
+  );
+  $form['path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Path'),
+    '#maxlength' => 60,
+    '#default_value' => !empty($entityDashboard->path) ? $entityDashboard->path : '',
+    '#weight' => -20,
+    '#required' => TRUE,
+  );
+  $form['tpl'] = array(
+    '#type' => 'radios',
+    '#title' => t('Template'),
+    '#maxlength' => 60,
+    '#default_value' => !empty($entityDashboard->tpl) ? $entityDashboard->tpl : '',
+    '#options' => array('default' => t('Default')),
+    '#weight' => -10,
+    '#required' => TRUE,
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#weight' => 40
+  );
+  if (!empty($entityDashboard->did)) {
+    $form['actions']['delete'] = array(
+      '#type' => 'submit',
+      '#value' => t('Delete'),
+      '#weight' => 45,
+      '#limit_validation_errors' => array(),
+      '#submit' => array('entity_dashboard_form_submit_delete'),
+    );    
+  }
+  $form['#validate'][] = 'entity_dashboard_form_validate';
+  $form['#submit'][] = 'entity_dashboard_form_submit';
+  return $form;
+}
+
+/**
+ * Entity dashboard form validate handler.
+ */
+function entity_dashboard_form_validate($form, &$form_state) {
+  // Notify field widgets to validate their data.
+  $title = trim($form_state['values']['title']);
+  $path = trim($form_state['values']['path']);
+  if (empty($title)) {
+    form_set_error('title', t("Title can't be empty."));
+  }
+  if (empty($path)) {
+    form_set_error('path', t("Path can't be empty."));
+  }
+  if (empty($form_state['values']['tpl'])) {
+    form_set_error('tpl', t("Template can't be empty."));
+  }
+
+  if (!form_get_errors()) {
+    form_set_value($form['title'], $title, $form_state);
+    form_set_value($form['path'], $path, $form_state);
+  }
+}
+
+/**
+ * Entity dashboard form submit handler.
+ */
+function entity_dashboard_form_submit($form, &$form_state) {
+  $entityDashboard = &$form_state['entity_dashboard'];
+  $entityDashboard->did = $form_state['values']['did'];
+  $entityDashboard->title = $form_state['values']['title'];
+  $entityDashboard->path = $form_state['values']['path'];
+  $entityDashboard->tpl = $form_state['values']['tpl'];
+  // Save the bmap
+  entity_dashboard_save($entityDashboard);
+  drupal_set_message(t('Entity dashboard saved.'));
+  $form_state['redirect'] = 'entity_dashboard/'.$entityDashboard->did;
+}
+
+/**
+ * Entity dashboard form submit handler for the delete button.
+ */
+function entity_dashboard_form_submit_delete($form, &$form_state) {
+  $entityDashboard = $form_state['entity_dashboard'];
+  $form_state['redirect'] = 'entity_dashboard/'.$entityDashboard->did.'/delete';
+}
+
+/**
+ * Get entity dashboard path.
+ */
+function entity_dashboard_paths() {
+  $paths = &drupal_static(__FUNCTION__);
+  if (!isset($paths)) {
+    if ($cache = cache_get('entity_dashboard:entity_dashboard_paths')) {
+      $paths = $cache->data;
+    }
+    else {
+      $paths = db_select('entity_dashboard', 'ed')->fields('ed', array('path'))->execute()->fetchCol();
+      cache_set('entity_dashboard:entity_dashboard_paths', $paths, 'cache');
+    }
+  }
+  return $paths;
+}
+
+/**
+ * Get available blocks.
+ */
+function entity_dashboard_available_blocks() {
+  $available_blocks = variable_get('entity_dashboard_available_blocks', NULL);
+  return $available_blocks ? unserialize($available_blocks) : array();
+}
+
+/**
+ * Implements hook_block_info_alter().
+ */
+function entity_dashboard_block_info_alter(&$blocks, $theme, $code_blocks) {
+  $admin_theme = variable_get('admin_theme');
+  if (($admin_theme && $theme == $admin_theme) || (!$admin_theme && $theme == variable_get('theme_default', 'bartik'))) {
+    foreach ($blocks as $module => &$module_blocks) {
+      foreach ($module_blocks as $delta => &$block) {
+        // Make administrative blocks that are not already in use elsewhere
+        // available for the dashboard.
+        if (empty($block['status']) && (empty($block['region']) || $block['region'] == BLOCK_REGION_NONE) && !empty($code_blocks[$module][$delta]['properties']['administrative'])) {
+          $block['status'] = 1;
+          $block['region'] = 'entity_dashboard_inactive';
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_block_list_alter().
+ *
+ * Skip rendering dashboard blocks when not on the dashboard page itself. This
+ * prevents expensive dashboard blocks from causing performance issues on pages
+ * where they will never be displayed.
+ */
+function entity_dashboard_block_list_alter(&$blocks) {
+  if (!entity_dashboard_is_visible()) {
+    foreach ($blocks as $key => $block) {
+      if (in_array($block->region, _entity_dashboard_regions())) {
+        unset($blocks[$key]);
+      }
+    }
+  }
+}
+
+/**
+ * Determines if the dashboard should be displayed on the current page.
+ *
+ * @return
+ *   TRUE if the dashboard should be visible on the current page, FALSE
+ *   otherwise.
+ */
+function entity_dashboard_is_visible() {
+  static $is_visible;
+  if (!isset($is_visible)) {
+    $paths = entity_dashboard_paths();
+    $is_visible = !empty($paths) && in_array(current_path(), $paths);
+  }
+  return $is_visible;
+}
+
+/**
+ * Implements hook_page_build().
+ *
+ * Display dashboard blocks in the main content region.
+ */
+function entity_dashboard_page_build(&$page) {
+  global $theme_key;
+  if ($entityDashboard = entity_dashboard_load_by_path(current_path())) {
+    // $block_info = array();
+    // Create a wrapper for the dashboard itself, then insert each dashboard
+    // region into it.
+    $available_blocks = entity_dashboard_available_blocks();
+    $query = db_select('entity_dashboard_block', 'b');
+    $result = $query
+      ->fields('b')
+      ->condition('b.theme', $theme_key)
+      ->condition('b.status', 1)
+      ->condition('b.did', $entityDashboard->did)
+      ->orderBy('b.region')
+      ->orderBy('b.weight')
+      ->orderBy('b.module')
+      ->addTag('block_load')
+      ->addTag('translatable')
+      ->execute();
+    $block_info = $result->fetchAllAssoc('bid');
+    // Allow modules to modify the block list.
+    drupal_alter('block_list', $block_info);
+    
+    $user_blocks = array();
+    foreach ($block_info as $b) {
+      //ensure that this is still a valid block, otherwise remove it and alert the user
+      $data = db_select('block', 'b')
+              ->fields('b')
+              ->condition('theme',  $b->theme)
+              ->condition('module', $b->module)
+              ->condition('delta',  $b->delta)
+              ->execute()
+              ->fetchAssoc();
+      
+      if (!$data || !in_array($b->module . '_' . $b->delta, $available_blocks)) {
+        drupal_set_message(t('Block !delta provided by module !module is no longer available and has been removed from your dashboard.', array('!delta' => '<em>' . $b->delta . '</em>', '!module' => '<em>' . $b->module . '</em>')), 'warning');
+        
+        db_delete('entity_dashboard_block')
+          ->condition('theme',  $b->theme)
+          ->condition('module', $b->module)
+          ->condition('delta',  $b->delta)
+          ->condition('did',    $entityDashboard->did)
+          ->execute();
+      }
+      else {
+        $user_blocks[$b->region][$b->module . '_' . $b->delta] = $b;
+      }
+    }
+
+    foreach ($user_blocks as $key => $r) {
+      if ($list = _block_render_blocks($r)) {
+        if (!isset($page[$key])) {
+          $page[$key] = array();
+        }
+        
+        $page[$key] += _block_get_renderable_array($list);
+      }    
+    }      
+
+    $block_info = array();
+
+    $page['content']['entity_dashboard'] = array('#theme_wrappers' => array('entity_dashboard'));
+    foreach (_entity_dashboard_regions() as $region) {
+      if ($region == 'entity_dashboard_inactive') {
+        continue;
+      }
+      $page['content']['entity_dashboard'][$region] = !empty($page[$region]) ? $page[$region] : array();
+      $page['content']['entity_dashboard'][$region]['#entity_dashboard_region'] = $region;
+      $page['content']['entity_dashboard'][$region]['#theme_wrappers'][] = array($region, 'entity_dashboard_region');
+      // Allow modules to alter the region
+      drupal_alter('entity_dashboard_region', $page['content']['entity_dashboard'][$region]);
+      unset($page[$region]);
+      $blocks_found = array();
+      foreach ($page['content']['entity_dashboard'][$region] as $key => $item) {
+        if (isset($item['#theme_wrappers']) && is_array($item['#theme_wrappers']) && in_array('block', $item['#theme_wrappers'])) {
+          if (empty($item['#block']->subject)) {
+            if (!isset($block_info[$item['#block']->module])) {
+              $block_info[$item['#block']->module] = module_invoke($item['#block']->module, 'block_info');
+            }
+            $item['#block']->subject = $block_info[$item['#block']->module][$item['#block']->delta]['info'];
+          }
+          $blocks_found[$item['#block']->module . '_' . $item['#block']->delta] = TRUE;
+        }
+      }
+
+      $block_list = db_select('entity_dashboard_block')
+        ->condition('theme', $theme_key)
+        ->condition('status', 1)
+        ->condition('region', $region)
+        ->condition('did', $entityDashboard->did)
+        ->fields('entity_dashboard_block')
+        ->orderBy('weight')
+        ->execute();
+      foreach ($block_list as $block) {
+        if (!isset($blocks_found[$block->module . '_' . $block->delta])) {
+          $block->enabled = $block->page_match = TRUE;
+          $block->content = array('#markup' => '<div class="dashboard-block-empty">(empty)</div>');
+          if (!isset($block_info[$block->module])) {
+            $block_info[$block->module] = module_invoke($block->module, 'block_info');
+          }
+          $block->subject = t('@title', array('@title' => $block_info[$block->module][$block->delta]['info']));
+          $block_render = array($block->module . '_' . $block->delta => $block);
+          $build = _block_get_renderable_array($block_render);
+          $page['content']['entity_dashboard'][$block->region][] = $build;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_system_info_alter().
+ *
+ * Add regions to each theme to store the dashboard blocks.
+ */
+function entity_dashboard_system_info_alter(&$info, $file, $type) {
+  if ($type == 'theme') {
+    $entity_dashboard_regions = _entity_dashboard_region_descriptions();
+    if (isset($entity_dashboard_regions['entity_dashboard_inactive'])) {
+      $inactive_region = $entity_dashboard_regions['entity_dashboard_inactive'];
+      unset($entity_dashboard_regions['entity_dashboard_inactive']);
+      $entity_dashboard_regions['entity_dashboard_inactive'] = $inactive_region;
+    }
+    $info['regions'] += $entity_dashboard_regions;
+    $info['overlay_regions'] = !empty($info['overlay_regions']) ? array_merge($info['overlay_regions'], _entity_dashboard_regions()) : _entity_dashboard_regions();
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function entity_dashboard_theme() {
+  return array(
+    'entity_dashboard' => array(
+      'render element' => 'element',
+    ),
+    'entity_dashboard_demo' => array(
+      'render element' => 'element',
+    ),
+    'entity_dashboard_region' => array(
+      'render element' => 'element',
+    ),
+    'entity_dashboard_disabled_blocks' => array(
+      'variables' => array('blocks' => NULL),
+    ),
+    'entity_dashboard_disabled_block' => array(
+      'variables' => array('block' => NULL),
+    ),
+    'entity_dashboard_admin_display_form' => array(
+      'template' => 'block-admin-display-form',
+      'path' => drupal_get_path('module', 'block'),
+      'file' => 'block.admin.inc',
+      'render element' => 'form',
+    ),
+  );
+}
+
+/**
+ * Implements hook_forms().
+ */
+function entity_dashboard_forms() {
+  $forms['entity_dashboard_admin_display_form'] = array(
+    'callback' => 'block_admin_display_form',
+  );
+  return $forms;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function entity_dashboard_form_entity_dashboard_admin_display_form_alter(&$form, &$form_state) {
+  foreach ($form['blocks'] as &$block) {
+    if (user_access('administer entity dashboard')) {
+      if (isset($block['configure']['#href'])) {
+        $block['configure']['#options']['query']['destination'] = 'entity_dashboard/demo/configure';
+      }
+      if (isset($block['delete']['#href'])) {
+        $block['delete']['#options']['query']['destination'] = 'entity_dashboard/demo/configure';
+      }
+    }
+    else {
+      unset($block['configure']);
+      unset($block['delete']);
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function entity_dashboard_form_block_admin_configure_alter(&$form, &$form_state) {
+  global $theme_key;
+  drupal_theme_initialize();
+  $dashboard_regions = _entity_dashboard_region_descriptions();
+  foreach (element_children($form['regions']) as $region_name) {
+    $region = &$form['regions'][$region_name];
+    if ($region_name != $theme_key && isset($region['#options'])) {
+      $region['#options'] = array_diff_key($region['#options'], $dashboard_regions);
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function entity_dashboard_form_block_add_block_form_alter(&$form, &$form_state) {
+  entity_dashboard_form_block_admin_configure_alter($form, $form_state);
+}
+
+/**
+ * Preprocesses variables for block-admin-display-form.tpl.php.
+ */
+function template_preprocess_entity_dashboard_admin_display_form(&$variables) {
+  template_preprocess_block_admin_display_form($variables);
+  if (isset($variables['block_regions'][BLOCK_REGION_NONE])) {
+    $variables['block_regions'][BLOCK_REGION_NONE] = t('Other blocks');
+  }
+}
+
+/**
+ * Returns an array of dashboard region descriptions, keyed by region name.
+ */
+function _entity_dashboard_region_descriptions() {
+  $regions = module_invoke_all('entity_dashboard_regions');
+  drupal_alter('entity_dashboard_regions', $regions);
+  return $regions;
+}
+
+/**
+ * Returns an array of dashboard region names.
+ */
+function _entity_dashboard_regions() {
+  $regions = &drupal_static(__FUNCTION__);
+  if (!isset($regions)) {
+    $regions = array_keys(_entity_dashboard_region_descriptions());
+  }
+  return $regions;
+}
+
+/**
+ * Implements hook_dashboard_regions().
+ */
+function entity_dashboard_entity_dashboard_regions() {
+  return array(
+    'entity_dashboard_sidebar' => 'Entity Dashboard (sidebar)',
+    'entity_dashboard_main' => 'Entity Dashboard (main)',
+    'entity_dashboard_sidebar_two' => 'Entity Dashboard (sidebar two)',
+    'entity_dashboard_inactive' => 'Entity Dashboard (inactive)',
+  );
+}
+
+/**
+ * Returns HTML for the entire dashboard.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - element: A render element containing the properties of the dashboard
+ *     region element, #dashboard_region and #children.
+ *
+ * @ingroup themeable
+ */
+function theme_entity_dashboard($variables) {
+  extract($variables);
+  drupal_add_css(drupal_get_path('module', 'entity_dashboard') . '/entity_dashboard.css');
+  return '<div id="dashboard" class="clearfix">' . $element['#children'] . '</div>';
+}
+
+/**
+ * Returns HTML for the non-customizable part of the dashboard page.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - element: A render element containing a #message.
+ *
+ * @ingroup themeable
+ */
+function theme_entity_dashboard_demo($variables) {
+  // We only return a simple help message, since the actual content of the page
+  // will be populated via the dashboard regions in dashboard_page_build().
+  return '<div class="customize-dashboard js-hide">' . $variables['element']['#message'] . '</div>';
+}
+
+/**
+ * Returns HTML for a generic dashboard region.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - element: A render element containing the properties of the dashboard
+ *     region element, #dashboard_region and #children.
+ *
+ * @ingroup themeable
+ */
+function theme_entity_dashboard_region($variables) {
+  extract($variables);
+  $output = '<div id="' . $element['#entity_dashboard_region'] . '" class="dashboard-region">';
+  $output .= '<div class="region clearfix">';
+  $output .= $element['#children'];
+  // Closing div.region
+  $output .= '</div>';
+  // Closing div.dashboard-region
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Returns HTML for disabled blocks, for use in dashboard customization mode.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - blocks: An array of block objects from _block_rehash().
+ *
+ * @ingroup themeable
+ */
+function theme_entity_dashboard_disabled_blocks($variables) {
+  extract($variables);
+  $output = '<div class="canvas-content"><p>' . t('Drag and drop these blocks to the columns below. Changes are automatically saved. More options are available on the <a href="@dashboard-url">configuration page</a>.', array('@dashboard-url' => url('entity_dashboard/demo/configure'))) . '</p>';
+  $output .= '<div id="disabled-blocks"><div class="region disabled-blocks clearfix">';
+  foreach ($blocks as $block) {
+    $output .= theme('entity_dashboard_disabled_block', array('block' => $block));
+  }
+  $output .= '<div class="clearfix"></div>';
+  $output .= '<p class="dashboard-add-other-blocks">' . l(t('Add other blocks'), arg(0).'/configure') . '</p>';
+  $output .= '</div></div></div>';
+  return $output;
+}
+
+/**
+ * Returns HTML for disabled blocks, for use in dashboard customization mode.
+ *
+ * @param $variables
+ *   An associative array containing:
+ *   - block: A block object from _block_rehash().
+ *
+ * @ingroup themeable
+ */
+function theme_entity_dashboard_disabled_block($variables) {
+  extract($variables);
+  $output = "";
+  if (isset($block)) {
+    $output .= '<div id="block-' . $block['module'] . '-' . $block['delta']
+    . '" class="disabled-block block block-' . $block['module'] . '-' . $block['delta']
+    . ' module-' . $block['module'] . ' delta-' . $block['delta'] . '">'
+    . '<h2>' . (!empty($block['title']) && $block['title'] != '<none>' ? check_plain($block['title']) : check_plain($block['info'])) . '</h2>'
+    . '<div class="content"></div>'
+    . '</div>';
+  }
+  return $output;
+}
