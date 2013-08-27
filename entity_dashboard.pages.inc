@@ -67,9 +67,6 @@ function entity_dashboard_delete_confirm_form($form, &$form_state, $dashboard) {
  */
 function entity_dashboard_delete_confirm_form_submit($form, &$form_state) {
   $dashboard = $form_state['dashboard'];
-  module_load_include('inc', 'themekey', 'themekey_base');
-  module_load_include('inc', 'themekey', 'themekey_build');
-  themekey_rule_del($dashboard->themekey_id);
   $dashboard->delete();
   drupal_set_message(t('Delete dashboard for Path : %path .', array('%path' => $dashboard->path)));
   $form_state['redirect'] = 'admin/structure/entity_dashboard';

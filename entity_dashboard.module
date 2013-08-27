@@ -440,19 +440,22 @@ class entityDashboard extends Entity {
   }
 
   public function save() {
+    $this->themeKeySave();
     parent::save();
     $this->resetStatic();
     $this->clearCache();
   }
 
   public function delete() {
-    db_delete('entity_dashboard_block')->condition('did', $this->did)->execute();
+    $this->blockDelete();
+    $this->themeKeyDelete();
     parent::delete();
     $this->resetStatic();
     $this->clearCache();
   }
 
   public function resetStatic() {
+    dpm($this);
     drupal_static_reset('entity_dashboards');
     drupal_static_reset('entity_dashboard_paths');
     drupal_static_reset('entity_dashboard_load_by_path');
@@ -465,6 +468,36 @@ class entityDashboard extends Entity {
     ctools_object_cache_clear('entity_dashboard', 'entity_dashboard_load_by_path:'.$this->path);
     menu_cache_clear_all();
     menu_rebuild();
+  }
+
+  public function blockDelete() {
+    db_delete('entity_dashboard_block')->condition('did', $this->did)->execute();
+  }
+
+  public function themeKeySave() {
+    $this->themeKeyInclude();
+    $item = array(
+      'id' => isset($this->themekey_id) ? $this->themekey_id : NULL,
+      'property' => 'drupal:path',
+      'value' => $this->path,
+      'theme' => $this->theme,
+      'operator' => '=',
+      'enabled' => 1,
+      'parent' => 0,
+      'weight' => 0,
+    );
+    themekey_rule_set($item, 'entity_dashboard');
+    if (isset($this->is_new) && $this->is_new) {
+      $this->themekey_id = $item['id'];
+    }
+  }
+  public function themeKeyDelete() {
+    $this->themeKeyInclude();
+    themekey_rule_del($this->themekey_id);
+  }
+  public function themeKeyInclude() {
+    module_load_include('inc', 'themekey', 'themekey_base');
+    module_load_include('inc', 'themekey', 'themekey_build');
   }
 }
 
@@ -588,22 +621,6 @@ function entity_dashboard_form_submit($form, &$form_state) {
   $entityDashboard->path = $form_state['values']['path'];
   $entityDashboard->theme = $form_state['values']['theme'];
 
-  module_load_include('inc', 'themekey', 'themekey_base');
-  module_load_include('inc', 'themekey', 'themekey_build');
-  $item = array(
-    'id' => isset($entityDashboard->themekey_id) ? $entityDashboard->themekey_id : NULL,
-    'property' => 'drupal:path',
-    'value' => $entityDashboard->path,
-    'theme' => $entityDashboard->theme,
-    'operator' => '=',
-    'enabled' => 1,
-    'parent' => 0,
-    'weight' => 0,
-  );
-  themekey_rule_set($item, 'entity_dashboard');
-  if (isset($entityDashboard->is_new) && $entityDashboard->is_new) {
-    $entityDashboard->themekey_id = $item['id'];
-  }
   // Save the bmap
   entity_dashboard_save($entityDashboard);
   drupal_set_message(t('Entity dashboard saved.'));
