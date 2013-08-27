@@ -36,11 +36,18 @@ function entity_dashboard_schema() {
         'not null' => TRUE,
         'description' => 'The dashboard use theme_key id.',
       ),
+      'module' => array(
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+        'description' => 'Which module create this dashboard.',
+      ),
     ),
     'primary key' => array('did'),
     'indexes' => array(
       'title' => array('title'),
       'path' => array('path'),
+      'module' => array('module'),
     ),
   );
   $schema['entity_dashboard_block'] = array(

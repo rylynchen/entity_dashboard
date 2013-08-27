@@ -5,7 +5,7 @@
  */
 function entity_dashboard_menu() {
   $items = array();
-  $items['admin/config/system/entity_dashboard'] = array(
+  $items['admin/config/content/entity_dashboard'] = array(
     'title' => 'Entity Dashboard Settings Block',
     'description' => 'Entity dashboard settings',
     'page callback' => 'drupal_get_form',
@@ -14,12 +14,12 @@ function entity_dashboard_menu() {
     'file' => 'entity_dashboard.admin.inc',
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/config/system/entity_dashboard/block'] = array(
+  $items['admin/config/content/entity_dashboard/block'] = array(
     'title' => 'Block',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => 0,
   );
-  $items['admin/config/system/entity_dashboard/theme'] = array(
+  $items['admin/config/content/entity_dashboard/theme'] = array(
     'title' => 'Theme',
     'description' => 'Entity dashboard settings',
     'page callback' => 'drupal_get_form',
@@ -82,13 +82,6 @@ function entity_dashboard_menu() {
     $items[$dashboard->path] = array(
       'title' => $dashboard->title,
       'page callback' => 'entity_dashboard_page',
-      'page arguments' => array($dashboard->path),
-      'access callback' => TRUE,
-      'file' => 'entity_dashboard.pages.inc',
-    );
-    $items[$dashboard->path.'/test'] = array(
-      'title' => $dashboard->title,
-      'page callback' => 'entity_dashboard_test',
       'page arguments' => array($dashboard->path),
       'access callback' => TRUE,
       'file' => 'entity_dashboard.pages.inc',
@@ -356,8 +349,8 @@ function entity_dashboard_load_multiple($dids = array(), $conditions = array(), 
 /**
  * Deletes a entity dashboard.
  */
-function entity_dashboard_delete(entityDashboard $entityDashboard) {
-  $entityDashboard->delete();
+function entity_dashboard_delete($did) {
+  entity_dashboard_delete_multiple(array($did));
 }
 
 /**
@@ -427,6 +420,13 @@ class entityDashboard extends Entity {
    */
   public $themekey_id;
 
+  /**
+   * The entity dashboard provider.
+   *
+   * @var varchar
+   */
+  public $module;
+
   public function __construct($values = array()) {
     parent::__construct($values, 'entity_dashboard');
   }
@@ -441,6 +441,7 @@ class entityDashboard extends Entity {
 
   public function save() {
     $this->themeKeySave();
+    $this->module = isset($this->module) ? $this->module : 'entity_dashboard';
     parent::save();
     $this->resetStatic();
     $this->clearCache();

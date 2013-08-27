@@ -41,6 +41,13 @@ class entityDashboardMetadataController extends EntityDefaultMetadataController 
       'setter permission' => 'administer entity dashboard',
       'schema field' => 'themekey_id',
     );
+    $properties['module'] = array(
+      'label' => t('Module'),
+      'description' => t('Which module create this dashboard.'),
+      'setter callback' => 'entity_property_verbatim_set',
+      'setter permission' => 'administer entity dashboard',
+      'schema field' => 'module',
+    );
     return $info;
   }
 }

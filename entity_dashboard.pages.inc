@@ -1,13 +1,6 @@
 <?php
 
 /**
- * Test
- */
-function entity_dashboard_test($path) {
-  return $path;
-}
-
-/**
  * Display dashboard admin page
  */
 function entity_dashboard_manage() {
@@ -40,6 +33,10 @@ function entity_dashboard_page_view($entityDashboard, $view_mode = 'full') {
     );
     $build['entity_dashboard'][$entityDashboard->did]['theme'] = array(
       '#markup' => '<div class="field field-type-text field-label-above"><div class="field-label">Theme:<div class="field-items"><div class="field-item even">'.filter_xss($entityDashboard->theme).'</div></div></div>',
+      '#weight' => -10,
+    );
+    $build['entity_dashboard'][$entityDashboard->did]['module'] = array(
+      '#markup' => '<div class="field field-type-text field-label-above"><div class="field-label">Module:<div class="field-items"><div class="field-item even">'.filter_xss($entityDashboard->module).'</div></div></div>',
       '#weight' => -10,
     );
   }
