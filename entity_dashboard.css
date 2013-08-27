@@ -8,18 +8,6 @@
   min-height: 1px;
 }
 
-#dashboard div#entity_dashboard_main {
-  width: 59%;
-}
-
-#dashboard div#entity_dashboard_sidebar {
-  width: 20%;
-}
-
-#dashboard div#entity_dashboard_sidebar_two {
-  width: 20%;
-}
-
 #dashboard div.block {
   margin-bottom: 20px;
 }

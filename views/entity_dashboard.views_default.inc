@@ -50,10 +50,14 @@ function entity_dashboard_views_default_views() {
 	$handler->display->display_options['fields']['path']['field'] = 'path';
 	$handler->display->display_options['fields']['path']['alter']['make_link'] = TRUE;
 	$handler->display->display_options['fields']['path']['alter']['path'] = '[path]';
-	/* Field: Entity Dashboard: Template */
-	$handler->display->display_options['fields']['tpl']['id'] = 'tpl';
-	$handler->display->display_options['fields']['tpl']['table'] = 'entity_dashboard';
-	$handler->display->display_options['fields']['tpl']['field'] = 'tpl';
+	/* Field: Entity Dashboard: Theme */
+	$handler->display->display_options['fields']['theme']['id'] = 'theme';
+	$handler->display->display_options['fields']['theme']['table'] = 'entity_dashboard';
+	$handler->display->display_options['fields']['theme']['field'] = 'theme';
+	/* Field: Entity Dashboard: ThemeKey ID */
+	$handler->display->display_options['fields']['themekey_id']['id'] = 'themekey_id';
+	$handler->display->display_options['fields']['themekey_id']['table'] = 'entity_dashboard';
+	$handler->display->display_options['fields']['themekey_id']['field'] = 'themekey_id';
 	/* Field: Entity Dashboard: Operations links */
 	$handler->display->display_options['fields']['operations']['id'] = 'operations';
 	$handler->display->display_options['fields']['operations']['table'] = 'entity_dashboard';

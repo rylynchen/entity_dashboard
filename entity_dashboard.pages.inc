@@ -1,6 +1,13 @@
 <?php
 
 /**
+ * Test
+ */
+function entity_dashboard_test($path) {
+  return $path;
+}
+
+/**
  * Display dashboard admin page
  */
 function entity_dashboard_manage() {
@@ -31,8 +38,8 @@ function entity_dashboard_page_view($entityDashboard, $view_mode = 'full') {
       '#markup' => '<div class="field field-type-text field-label-above"><div class="field-label">Path:</div><div class="field-items"><div class="field-item even">'.l(filter_xss($entityDashboard->path), $entityDashboard->path).'</div></div></div>',
       '#weight' => -20,
     );
-    $build['entity_dashboard'][$entityDashboard->did]['tpl'] = array(
-      '#markup' => '<div class="field field-type-text field-label-above"><div class="field-label">Template:<div class="field-items"><div class="field-item even">'.filter_xss($entityDashboard->tpl).'</div></div></div>',
+    $build['entity_dashboard'][$entityDashboard->did]['theme'] = array(
+      '#markup' => '<div class="field field-type-text field-label-above"><div class="field-label">Theme:<div class="field-items"><div class="field-item even">'.filter_xss($entityDashboard->theme).'</div></div></div>',
       '#weight' => -10,
     );
   }
@@ -60,6 +67,9 @@ function entity_dashboard_delete_confirm_form($form, &$form_state, $dashboard) {
  */
 function entity_dashboard_delete_confirm_form_submit($form, &$form_state) {
   $dashboard = $form_state['dashboard'];
+  module_load_include('inc', 'themekey', 'themekey_base');
+  module_load_include('inc', 'themekey', 'themekey_build');
+  themekey_rule_del($dashboard->themekey_id);
   $dashboard->delete();
   drupal_set_message(t('Delete dashboard for Path : %path .', array('%path' => $dashboard->path)));
   $form_state['redirect'] = 'admin/structure/entity_dashboard';
@@ -115,39 +125,41 @@ function entity_dashboard_page($path, $launch_customize = FALSE) {
  * @see template_preprocess_dashboard_admin_display_form()
  */
 function entity_dashboard_page_blocks($path) {
+  global $theme_key;
+  // $use_theme = variable_get('theme_default','none');
   $entityDashboard = entity_dashboard_load_by_path($path);
   drupal_theme_initialize();
   module_load_include('inc', 'block', 'block.admin');
 
   $blocks = array();
   $available_blocks = entity_dashboard_available_blocks();
-  $use_theme = variable_get('theme_default','none');
   $entityDashboard_blocks = db_select('entity_dashboard_block', 'edb')
     ->fields('edb')->condition('edb.did',  $entityDashboard->did)
     ->execute()
     ->fetchAllAssoc('bid', PDO::FETCH_ASSOC);
-  $entityDashboard_blocks = empty($entityDashboard_blocks) ? block_admin_display_prepare_blocks(variable_get('theme_default','none')) : $entityDashboard_blocks;
+  $entityDashboard_blocks = empty($entityDashboard_blocks) ? block_admin_display_prepare_blocks($theme_key) : $entityDashboard_blocks;
   $dashboard_regions = _entity_dashboard_region_descriptions();
   $blocks = array();
-  $_blocks = block_admin_display_prepare_blocks($use_theme);
+  $_blocks = block_admin_display_prepare_blocks($theme_key);
   foreach ($_blocks as $block) {
     if (in_array($block['module'] . '_' . $block['delta'], $available_blocks)) {
       $blocks[] = $block;
     }
   }
-  return drupal_get_form('entity_dashboard_admin_display_form', $blocks, $use_theme, $dashboard_regions);
+  return drupal_get_form('entity_dashboard_admin_display_form', $blocks, $theme_key, $dashboard_regions);
 }
 
 /**
  * Ajax callback: Shows disabled blocks in the dashboard customization mode.
  */
 function entity_dashboard_show_disabled($path) {
+  global $theme_key;
+  // $theme = variable_get('theme_default','none');
   $entityDashboard = entity_dashboard_load_by_path($path);
-  $theme = variable_get('theme_default','none');
 
   $available = entity_dashboard_available_blocks();
   $entity_dashboard_blocks = db_select('entity_dashboard_block')
-    ->condition('theme', $theme)
+    ->condition('theme', $theme_key)
     ->condition('status', 1)
     ->condition('region ', 'entity_dashboard_inactive', '<>')
     ->condition('did', $entityDashboard->did)
@@ -180,13 +192,14 @@ function entity_dashboard_show_disabled($path) {
  *   The block's delta.
  */
 function entity_dashboard_show_block_content($path, $module, $delta) {
+  global $theme_key;
+  // $theme = variable_get('theme_default', 'none');
   $entityDashboard = entity_dashboard_load_by_path($path);
   drupal_theme_initialize();
-  $theme = variable_get('theme_default', 'none');
 
   $blocks = array();
   $block_object = db_query("SELECT * FROM {block} WHERE theme = :theme AND module = :module AND delta = :delta", array(
-    ":theme" => $theme,
+    ":theme" => $theme_key,
     ":module" => $module,
     ":delta" => $delta,
     ))
@@ -205,9 +218,10 @@ function entity_dashboard_show_block_content($path, $module, $delta) {
  * Sets the new weight of each region according to the drag-and-drop order.
  */
 function entity_dashboard_update($path) {
+  global $theme_key;
+  // $theme = variable_get('theme_default', 'none');
   $entityDashboard = entity_dashboard_load_by_path($path);
   drupal_theme_initialize();
-  $theme = variable_get('theme_default', 'none');
   // Check the form token to make sure we have a valid request.
   if (!empty($_REQUEST['form_token']) && drupal_valid_token($_REQUEST['form_token'], 'entity-dashboard-update') && !empty($_REQUEST['entity_dashboard_path']) && $entityDashboard = entity_dashboard_load_by_path($_REQUEST['entity_dashboard_path'])) {
     parse_str($_REQUEST['regions'], $regions);
@@ -230,7 +244,7 @@ function entity_dashboard_update($path) {
           $delta_obj = db_query("SELECT delta FROM {block} WHERE module = :module AND delta = :delta AND theme = :theme LIMIT 1", array(
             ':module' => $block->module, 
             ':delta'  => $block->delta,
-            ':theme' => $theme,
+            ':theme' => $theme_key,
           ))->fetchObject();
           $block->delta = $delta_obj->delta;
           
@@ -238,7 +252,7 @@ function entity_dashboard_update($path) {
             ->key(array(
               'module'  => $block->module,
               'delta'   => $block->delta,
-              'theme'   => $theme,
+              'theme'   => $theme_key,
               'did'     => $entityDashboard->did,
             ))
             ->fields(array(

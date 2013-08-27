@@ -25,11 +25,16 @@ function entity_dashboard_schema() {
         'not null' => TRUE,
         'description' => 'The dashboard control path.',
       ),
-      'tpl' => array(
+      'theme' => array(
         'type' => 'varchar',
         'length' => 100,
         'not null' => FALSE,
-        'description' => 'The dashboard use template.',
+        'description' => 'The dashboard use theme.',
+      ),
+      'themekey_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The dashboard use theme_key id.',
       ),
     ),
     'primary key' => array('did'),
@@ -143,29 +148,31 @@ function entity_dashboard_schema() {
 function entity_dashboard_disable() {
   // Stash a list of currently enabled blocks.
   $stashed_blocks = array();
+  $regions = _entity_dashboard_regions();
+  if (!empty($regions)) {
+    $result = db_select('block', 'b')
+      ->fields('b', array('module', 'delta', 'region'))
+      ->condition('b.region', $regions, 'IN')
+      ->execute();
 
-  $result = db_select('block', 'b')
-    ->fields('b', array('module', 'delta', 'region'))
-    ->condition('b.region', _entity_dashboard_regions(), 'IN')
-    ->execute();
+    foreach ($result as $block) {
+      $stashed_blocks[] = array(
+        'module' => $block->module,
+        'delta' => $block->delta,
+        'region' => $block->region,
+      );
+    }
+    variable_set('entity_dashboard_stashed_blocks', $stashed_blocks);
 
-  foreach ($result as $block) {
-    $stashed_blocks[] = array(
-      'module' => $block->module,
-      'delta' => $block->delta,
-      'region' => $block->region,
-    );
+    // Disable the dashboard blocks.
+    db_update('block')
+      ->fields(array(
+        'status' => 0,
+        'region' => BLOCK_REGION_NONE,
+      ))
+      ->condition('region', $regions, 'IN')
+      ->execute();
   }
-  variable_set('entity_dashboard_stashed_blocks', $stashed_blocks);
-
-  // Disable the dashboard blocks.
-  db_update('block')
-    ->fields(array(
-      'status' => 0,
-      'region' => BLOCK_REGION_NONE,
-    ))
-    ->condition('region', _entity_dashboard_regions(), 'IN')
-    ->execute();
 }
 
 /**
@@ -209,10 +216,23 @@ function entity_dashboard_install() {
  * Implements hook_uninstall().
  */
 function entity_dashboard_uninstall() {
+  module_load_include('inc', 'themekey', 'themekey_base');
+  module_load_include('inc', 'themekey', 'themekey_build');
+  ctools_include('object-cache');
+  // clear block
   $available_blocks = variable_get('entity_dashboard_available_blocks', NULL);
   if ($available_blocks && !empty($available_blocks)) {
     db_delete('block')->condition('bid', unserialize($available_blocks), 'IN')->execute();
   }
+  // clear themekey
+  $dashboards = db_select('entity_dashboard', 'ed')->fields('ed', array('path', 'themekey_id'))->execute()->fetchAll();
+  foreach ($dashboards as $dashboard) {
+    themekey_rule_del($dashboard->themekey_id);
+    ctools_object_cache_clear('entity_dashboard', 'entity_dashboard_load_by_path:'.$dashboard->path);
+  }
+  // clear variable & cache
   variable_del('entity_dashboard_available_blocks');
+  variable_del('entity_dashboard_available_themes');
   variable_del('entity_dashboard_stashed_blocks');
+  cache_clear_all('entity_dashboard', 'cache', TRUE);
 }

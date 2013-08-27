@@ -27,12 +27,19 @@ class entityDashboardMetadataController extends EntityDefaultMetadataController 
       'setter permission' => 'administer entity dashboard',
       'schema field' => 'path',
     );
-    $properties['tpl'] = array(
-      'label' => t('Template'),
-      'description' => t('The dashboard template.'),
+    $properties['theme'] = array(
+      'label' => t('Theme'),
+      'description' => t('The dashboard theme.'),
       'setter callback' => 'entity_property_verbatim_set',
       'setter permission' => 'administer entity dashboard',
-      'schema field' => 'tpl',
+      'schema field' => 'theme',
+    );
+    $properties['themekey_id'] = array(
+      'label' => t('ThemeKey ID'),
+      'description' => t('The dashboard theme.'),
+      'setter callback' => 'entity_property_verbatim_set',
+      'setter permission' => 'administer entity dashboard',
+      'schema field' => 'themekey_id',
     );
     return $info;
   }
