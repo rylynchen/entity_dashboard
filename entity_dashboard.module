@@ -455,7 +455,6 @@ class entityDashboard extends Entity {
   }
 
   public function resetStatic() {
-    dpm($this);
     drupal_static_reset('entity_dashboards');
     drupal_static_reset('entity_dashboard_paths');
     drupal_static_reset('entity_dashboard_load_by_path');
